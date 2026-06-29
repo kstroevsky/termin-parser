@@ -31,6 +31,7 @@ from __future__ import annotations
 
 import hashlib
 import logging
+import random
 import re
 from dataclasses import dataclass
 from datetime import datetime
@@ -39,6 +40,22 @@ from pathlib import Path
 from .config import Config
 
 log = logging.getLogger("clinic_monitor")
+
+# A small pool of current, real desktop Chrome user-agents. One is picked per
+# run so checks don't all share a single fingerprint. Keep these realistic and
+# reasonably up to date.
+_USER_AGENTS = (
+    "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 "
+    "(KHTML, like Gecko) Chrome/125.0.0.0 Safari/537.36",
+    "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 "
+    "(KHTML, like Gecko) Chrome/125.0.0.0 Safari/537.36",
+    "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 "
+    "(KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36",
+)
+
+# Trim the most obvious headless automation tells. This makes the client look
+# like an ordinary browser at a polite rate — not a tool for abusive evasion.
+_STEALTH_JS = "Object.defineProperty(navigator, 'webdriver', {get: () => undefined});"
 
 NONE = "none"
 AVAILABLE = "available"
@@ -132,24 +149,43 @@ def _capture(page, cfg: Config, status: str) -> str | None:
         return None
 
 
+def _pause(page, lo_ms: int, hi_ms: int) -> None:
+    """Human-like variable wait between actions."""
+    page.wait_for_timeout(random.randint(lo_ms, hi_ms))
+
+
 def check(cfg: Config) -> CheckResult:
     from playwright.sync_api import sync_playwright
 
+    user_agent = cfg.user_agent or random.choice(_USER_AGENTS)
+
     with sync_playwright() as p:
-        browser = p.chromium.launch(headless=cfg.headless)
+        browser = p.chromium.launch(
+            headless=cfg.headless,
+            args=["--disable-blink-features=AutomationControlled"],
+        )
         try:
-            page = browser.new_page(
-                user_agent=cfg.user_agent,
-                viewport={"width": 1280, "height": 1600},
+            context = browser.new_context(
+                user_agent=user_agent,
+                locale=cfg.browser_locale,
+                timezone_id=cfg.browser_timezone,
+                # Slight per-run viewport variation around a common laptop size.
+                viewport={
+                    "width": random.randint(1280, 1440),
+                    "height": random.randint(820, 960),
+                },
             )
+            context.add_init_script(_STEALTH_JS)
+            page = context.new_page()
             page.set_default_timeout(cfg.nav_timeout_ms)
             page.goto(cfg.clinic_url, wait_until="domcontentloaded")
+            _pause(page, 400, 1200)
 
             # Step 1 — pick the service and advance (skipped if not shown).
             label = page.query_selector("label.tl-radio")
             if label:
                 label.click()
-                page.wait_for_timeout(150)
+                _pause(page, 250, 700)
                 next_btn = page.query_selector("#btnGo")
                 if next_btn:
                     next_btn.click()
@@ -157,7 +193,7 @@ def check(cfg: Config) -> CheckResult:
 
             # Let the Terminauswahl step settle (it loads the calendar via JS).
             page.wait_for_load_state("networkidle")
-            page.wait_for_timeout(1200)
+            _pause(page, 900, 1800)
 
             status, slots = classify(page, cfg)
             artifact = _capture(page, cfg, status) if status != NONE else None

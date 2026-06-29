@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import logging
+import random
 from datetime import datetime, time
 
 from .checker import AVAILABLE, ERROR, NONE, UNKNOWN, CheckResult, Slot, check
@@ -38,6 +39,18 @@ def _safe_check(cfg: Config) -> CheckResult:
 def _parse_hhmm(value: str) -> time:
     hh, mm = value.split(":")
     return time(int(hh), int(mm))
+
+
+def next_sleep_seconds(cfg: Config, rng: random.Random | None = None) -> float:
+    """Base interval ± random jitter, so checks don't land on a fixed clock.
+
+    Never returns less than 60s — jitter adds naturalness, it must not turn
+    into hammering.
+    """
+    r = rng or random
+    base = cfg.interval_minutes * 60
+    offset = r.uniform(-cfg.jitter_seconds, cfg.jitter_seconds)
+    return max(60.0, base + offset)
 
 
 def within_window(now: datetime, cfg: Config) -> bool:

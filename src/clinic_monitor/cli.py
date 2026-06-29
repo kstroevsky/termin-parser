@@ -14,7 +14,7 @@ import time
 from datetime import datetime
 
 from .config import load_config
-from .monitor import run_once, within_window
+from .monitor import next_sleep_seconds, run_once, within_window
 from .telegram import send_message
 
 log = logging.getLogger("clinic_monitor")
@@ -41,9 +41,9 @@ def _cmd_check(args: argparse.Namespace) -> int:
 
 def _cmd_loop(args: argparse.Namespace) -> int:
     cfg = load_config()
-    interval = cfg.interval_minutes * 60
-    log.info("Loop started: every %d min, window %s–%s (%s)",
-             cfg.interval_minutes, cfg.window_start, cfg.window_end, cfg.tz)
+    log.info("Loop started: ~every %d min (±%ds jitter), window %s–%s (%s)",
+             cfg.interval_minutes, cfg.jitter_seconds,
+             cfg.window_start, cfg.window_end, cfg.tz)
     while True:
         now = datetime.now(tz=cfg.tz)
         if within_window(now, cfg):
@@ -51,10 +51,12 @@ def _cmd_loop(args: argparse.Namespace) -> int:
                 run_once(cfg)
             except Exception:  # never let one bad check kill the loop
                 log.exception("Check failed; will retry next cycle.")
-            sleep_for = interval
+            sleep_for = next_sleep_seconds(cfg)
         else:
-            sleep_for = min(interval, 5 * 60)
-            log.info("Outside window — sleeping %d min.", sleep_for // 60)
+            # Outside the window, idle in coarse steps until it reopens.
+            sleep_for = min(next_sleep_seconds(cfg), 5 * 60)
+            log.info("Outside window — sleeping %d min.", int(sleep_for // 60))
+        log.info("Next check in %d min %02ds", int(sleep_for // 60), int(sleep_for % 60))
         time.sleep(sleep_for)
 
 

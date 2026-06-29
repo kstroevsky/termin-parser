@@ -12,12 +12,6 @@ from dotenv import load_dotenv
 
 load_dotenv()
 
-DEFAULT_USER_AGENT = (
-    "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 "
-    "(KHTML, like Gecko) Chrome/124.0 Safari/537.36"
-)
-
-
 @dataclass(frozen=True)
 class Config:
     telegram_token: str
@@ -27,12 +21,15 @@ class Config:
     window_start: str
     window_end: str
     interval_minutes: int
+    jitter_seconds: int
     tz: ZoneInfo
     state_path: Path
     capture_dir: Path
     headless: bool
     nav_timeout_ms: int
     user_agent: str
+    browser_locale: str
+    browser_timezone: str
 
 
 def _require(name: str) -> str:
@@ -62,11 +59,16 @@ def load_config() -> Config:
         no_slots_text=os.getenv("NO_SLOTS_TEXT", "keine freien Termine").strip(),
         window_start=os.getenv("WINDOW_START", "08:00").strip(),
         window_end=os.getenv("WINDOW_END", "21:00").strip(),
-        interval_minutes=int(os.getenv("INTERVAL_MINUTES", "15")),
+        # Base cadence and ± random jitter so checks don't land on a fixed clock.
+        interval_minutes=int(os.getenv("INTERVAL_MINUTES", "5")),
+        jitter_seconds=int(os.getenv("JITTER_SECONDS", "120")),
         tz=_resolve_tz(),
         state_path=Path(os.getenv("STATE_PATH", "state.json")),
         capture_dir=Path(os.getenv("CAPTURE_DIR", "captures")),
         headless=os.getenv("HEADLESS", "true").lower() not in ("0", "false", "no"),
         nav_timeout_ms=int(os.getenv("NAV_TIMEOUT_MS", "30000")),
-        user_agent=os.getenv("USER_AGENT", DEFAULT_USER_AGENT),
+        # Blank user-agent → pick a realistic one at random per run (see checker).
+        user_agent=os.getenv("USER_AGENT", "").strip(),
+        browser_locale=os.getenv("BROWSER_LOCALE", "de-DE").strip(),
+        browser_timezone=os.getenv("BROWSER_TIMEZONE", "Europe/Berlin").strip(),
     )
