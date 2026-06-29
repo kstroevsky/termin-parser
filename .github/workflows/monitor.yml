@@ -5,7 +5,7 @@ on:
   # window (Europe/Berlin, 08:00–21:00) in code. ~05–20 UTC covers it
   # year-round across CET/CEST.
   schedule:
-    - cron: "*/15 5-20 * * *"
+    - cron: "*/5 5-20 * * *"
   workflow_dispatch: {}
 
 concurrency:
@@ -45,6 +45,12 @@ jobs:
           key: clinic-state-${{ github.run_id }}
           restore-keys: |
             clinic-state-
+
+      # Cron can't be randomised, so add a small random delay to avoid checking
+      # on an exact 5-minute boundary. (A persistent `loop` host does true
+      # ±jitter — see README; cron timing is best-effort regardless.)
+      - name: Random delay
+        run: sleep $(( RANDOM % 180 ))
 
       - name: Check for slots
         env:
