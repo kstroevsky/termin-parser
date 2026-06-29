@@ -19,8 +19,21 @@ Terminland is a JavaScript-driven ASP.NET wizard, so a headless browser
    |---|---|---|
    | `available` | concrete `HH:MM` times found (wins over everything) | 🟢 alert with the times |
    | `none` | no times **and** a positive "no free slots" notice | stay silent |
+   | `queue` | the high-demand waiting room didn't clear in time | ⏳ "queue active — check now" |
    | `unknown` | no times and *not* confirmed-empty | 🟡 "possible opening — check now" |
    | `error` | the page failed to load twice in a row | 🛠️ "couldn't load — check manually" |
+
+   Under high load Terminland shows a **virtual waiting room** ("*erhöhtes
+   Buchungsaufkommen … Wartezeit*") with a countdown before the booking opens.
+   The checker detects it and **waits it out** (up to `QUEUE_MAX_WAIT_S`) before
+   reading the schedule; only a queue that never clears falls through to the
+   `queue` alert. Note this is distinct from the *no-slots* hint, which says
+   "*hohen Buchungsaufkommens*" — so an empty page is never mistaken for a queue.
+
+   **Insurance split.** The clinic exposes two deeplinks: `…/online/ADHS_new/`
+   (*gesetzlich* / statutory — the default here, very limited slots) and
+   `…/online/ADHS_Privat/` (*Selbstzahler* / self-pay — less restricted). Point
+   `CLINIC_URL` at whichever you need.
 
    **Bias: a false positive beats a false negative.** Opening the page to find
    nothing is fine; *missing* a slot is not. So the only silent outcome is a
@@ -124,6 +137,8 @@ Caveats:
 | `TELEGRAM_CHAT_ID` | — | Your numeric chat id |
 | `CLINIC_URL` | the ADHS_new deeplink | Booking start URL |
 | `NO_SLOTS_TEXT` | `keine freien Termine` | "nothing available" marker |
+| `QUEUE_TEXT` | `erhöhtes Buchungsaufkommen` | waiting-room marker |
+| `QUEUE_MAX_WAIT_S` | `180` | how long to wait out the queue before alerting |
 | `WINDOW_START` / `WINDOW_END` | `08:00` / `21:00` | Daily check window |
 | `INTERVAL_MINUTES` | `5` | Base loop interval |
 | `JITTER_SECONDS` | `120` | Random ± offset on the interval (natural cadence) |
