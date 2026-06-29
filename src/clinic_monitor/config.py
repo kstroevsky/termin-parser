@@ -18,6 +18,8 @@ class Config:
     telegram_chat_id: str
     clinic_url: str
     no_slots_text: str
+    queue_text: str
+    queue_max_wait_s: int
     window_start: str
     window_end: str
     interval_minutes: int
@@ -57,6 +59,10 @@ def load_config() -> Config:
         clinic_url=_require("CLINIC_URL"),
         # When this German text is on the schedule step, nothing is bookable.
         no_slots_text=os.getenv("NO_SLOTS_TEXT", "keine freien Termine").strip(),
+        # The virtual waiting room headline (distinct from the no-slots hint,
+        # which says "hohen Buchungsaufkommens"). When present, wait it out.
+        queue_text=os.getenv("QUEUE_TEXT", "erhöhtes Buchungsaufkommen").strip(),
+        queue_max_wait_s=int(os.getenv("QUEUE_MAX_WAIT_S", "180")),
         window_start=os.getenv("WINDOW_START", "08:00").strip(),
         window_end=os.getenv("WINDOW_END", "21:00").strip(),
         # Base cadence and ± random jitter so checks don't land on a fixed clock.

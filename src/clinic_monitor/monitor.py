@@ -6,7 +6,7 @@ import logging
 import random
 from datetime import datetime, time
 
-from .checker import AVAILABLE, ERROR, NONE, UNKNOWN, CheckResult, Slot, check
+from .checker import AVAILABLE, ERROR, NONE, QUEUE, UNKNOWN, CheckResult, Slot, check
 from .config import Config
 from .state import load_seen, save_seen
 from .telegram import send_message
@@ -17,6 +17,7 @@ log = logging.getLogger("clinic_monitor")
 # at most once per episode (cleared when the page reads cleanly again).
 _UNKNOWN = Slot(id="alert-unknown", label="schedule unrecognised")
 _ERROR = Slot(id="alert-error", label="page unreadable")
+_QUEUE = Slot(id="alert-queue", label="waiting room active")
 
 
 def _safe_check(cfg: Config) -> CheckResult:
@@ -95,6 +96,16 @@ def _format_error(cfg: Config) -> str:
     )
 
 
+def _format_queue(cfg: Config) -> str:
+    return (
+        "⏳ <b>Booking queue is active — check now</b>\n\n"
+        "The clinic is showing its high-demand waiting room and it didn't "
+        "clear in time. That usually means slots are being released right "
+        "now — worth jumping in yourself.\n\n"
+        f'<a href="{cfg.clinic_url}">Open booking page</a>'
+    )
+
+
 def run_once(cfg: Config, *, notify: bool = True) -> list[Slot]:
     """Run a single check. Returns the newly-notified items (possibly empty)."""
     result = _safe_check(cfg)
@@ -105,6 +116,8 @@ def run_once(cfg: Config, *, notify: bool = True) -> list[Slot]:
         items = [_UNKNOWN]
     elif result.status == ERROR:
         items = [_ERROR]
+    elif result.status == QUEUE:
+        items = [_QUEUE]
     else:  # NONE
         items = []
 
@@ -117,6 +130,8 @@ def run_once(cfg: Config, *, notify: bool = True) -> list[Slot]:
             text = _format_available(new, cfg)
         elif result.status == UNKNOWN:
             text = _format_unknown(cfg)
+        elif result.status == QUEUE:
+            text = _format_queue(cfg)
         else:  # ERROR
             text = _format_error(cfg)
         send_message(cfg.telegram_token, cfg.telegram_chat_id, text)

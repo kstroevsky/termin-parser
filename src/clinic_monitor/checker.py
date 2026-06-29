@@ -33,6 +33,7 @@ import hashlib
 import logging
 import random
 import re
+import time
 from dataclasses import dataclass
 from datetime import datetime
 from pathlib import Path
@@ -61,6 +62,7 @@ NONE = "none"
 AVAILABLE = "available"
 UNKNOWN = "unknown"
 ERROR = "error"
+QUEUE = "queue"
 
 TIME_RE = re.compile(r"\b([01]?\d|2[0-3]):[0-5]\d\b")
 
@@ -120,12 +122,15 @@ def classify(page, cfg: Config) -> tuple[str, list[Slot]]:
     times. Parsed times always win — even if an empty-notice also appears,
     we trust the times and alert.
     """
+    low = (page.inner_text("body") or "").lower()
+    # Still in the virtual waiting room after we tried to wait it out.
+    if cfg.queue_text.lower() in low:
+        return QUEUE, []
     slots = _extract_slots(page)
     if slots:
         return AVAILABLE, slots
     # No times found. Stay silent only if the page positively says "empty".
-    body = (page.inner_text("body") or "").lower()
-    confirmed_empty = cfg.no_slots_text.lower() in body or bool(
+    confirmed_empty = cfg.no_slots_text.lower() in low or bool(
         page.query_selector("#fsHinweis")
     )
     if confirmed_empty:
@@ -154,6 +159,35 @@ def _pause(page, lo_ms: int, hi_ms: int) -> None:
     page.wait_for_timeout(random.randint(lo_ms, hi_ms))
 
 
+def _in_queue(page, cfg: Config) -> bool:
+    try:
+        return cfg.queue_text.lower() in (page.inner_text("body") or "").lower()
+    except Exception:
+        return False  # mid-navigation read; treat as "unknown, keep waiting"
+
+
+def _wait_out_queue(page, cfg: Config) -> None:
+    """Terminland parks you in a countdown waiting room under high load. It
+    advances itself (auto-reload/redirect), so we just wait and re-check until
+    it clears or we hit the cap — then classification proceeds on whatever the
+    page becomes."""
+    if not _in_queue(page, cfg):
+        return
+    log.info("Virtual waiting room detected; waiting up to %ds…", cfg.queue_max_wait_s)
+    deadline = time.monotonic() + cfg.queue_max_wait_s
+    while time.monotonic() < deadline:
+        page.wait_for_timeout(random.randint(3000, 6000))
+        if not _in_queue(page, cfg):
+            log.info("Left the waiting room.")
+            try:
+                page.wait_for_load_state("networkidle")
+            except Exception:
+                pass
+            return
+    log.warning("Still in waiting room after %ds; classifying as-is.",
+                cfg.queue_max_wait_s)
+
+
 def check(cfg: Config) -> CheckResult:
     from playwright.sync_api import sync_playwright
 
@@ -180,6 +214,7 @@ def check(cfg: Config) -> CheckResult:
             page.set_default_timeout(cfg.nav_timeout_ms)
             page.goto(cfg.clinic_url, wait_until="domcontentloaded")
             _pause(page, 400, 1200)
+            _wait_out_queue(page, cfg)  # may greet us before the form
 
             # Step 1 — pick the service and advance (skipped if not shown).
             label = page.query_selector("label.tl-radio")
@@ -193,6 +228,7 @@ def check(cfg: Config) -> CheckResult:
 
             # Let the Terminauswahl step settle (it loads the calendar via JS).
             page.wait_for_load_state("networkidle")
+            _wait_out_queue(page, cfg)  # …or after submitting the form
             _pause(page, 900, 1800)
 
             status, slots = classify(page, cfg)
