@@ -1,0 +1,79 @@
+name: clinic-monitor
+
+on:
+  # GitHub cron is UTC; we run a generous band and gate the exact local
+  # window (Europe/Berlin, 08:00–21:00) in code. ~05–20 UTC covers it
+  # year-round across CET/CEST.
+  schedule:
+    - cron: "*/15 5-20 * * *"
+  workflow_dispatch: {}
+
+concurrency:
+  group: clinic-monitor
+  cancel-in-progress: false
+
+permissions:
+  contents: read
+
+jobs:
+  check:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+          cache: pip
+
+      - name: Cache Playwright browser
+        uses: actions/cache@v4
+        with:
+          path: ~/.cache/ms-playwright
+          key: playwright-${{ runner.os }}-chromium
+
+      - name: Install
+        run: |
+          pip install .
+          python -m playwright install --with-deps chromium
+
+      # Restore the "already notified" state from the previous run.
+      - name: Restore state
+        uses: actions/cache/restore@v4
+        with:
+          path: state.json
+          key: clinic-state-${{ github.run_id }}
+          restore-keys: |
+            clinic-state-
+
+      - name: Check for slots
+        env:
+          TELEGRAM_TOKEN: ${{ secrets.TELEGRAM_TOKEN }}
+          TELEGRAM_CHAT_ID: ${{ secrets.TELEGRAM_CHAT_ID }}
+          CLINIC_URL: ${{ vars.CLINIC_URL || 'https://www.terminland.de/noris-psychotherapie/online/ADHS_new/' }}
+          MONITOR_TZ: ${{ vars.MONITOR_TZ || 'Europe/Berlin' }}
+          WINDOW_START: ${{ vars.WINDOW_START || '08:00' }}
+          WINDOW_END: ${{ vars.WINDOW_END || '21:00' }}
+          STATE_PATH: state.json
+          CAPTURE_DIR: captures
+        run: clinic-monitor check
+
+      # Keep page HTML/screenshots from any non-empty check for inspection.
+      - name: Upload captures
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: captures-${{ github.run_id }}
+          path: captures/
+          if-no-files-found: ignore
+          retention-days: 14
+
+      # Persist state for the next run (ensure the file exists either way).
+      - name: Save state
+        if: always()
+        run: test -f state.json || echo '{"seen": []}' > state.json
+      - uses: actions/cache/save@v4
+        if: always()
+        with:
+          path: state.json
+          key: clinic-state-${{ github.run_id }}
