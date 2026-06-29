@@ -1,0 +1,27 @@
+# Secrets & local config
+.env
+
+# Runtime state (slot dedup memory)
+state.json
+*.tmp
+
+# Captured page HTML/screenshots from non-empty checks
+captures/
+
+# Python
+__pycache__/
+*.py[cod]
+*.egg-info/
+.eggs/
+build/
+dist/
+.venv/
+venv/
+
+# Tooling
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+
+# OS
+.DS_Store
