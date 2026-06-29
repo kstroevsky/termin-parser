@@ -125,7 +125,9 @@ Caveats:
 | `CLINIC_URL` | the ADHS_new deeplink | Booking start URL |
 | `NO_SLOTS_TEXT` | `keine freien Termine` | "nothing available" marker |
 | `WINDOW_START` / `WINDOW_END` | `08:00` / `21:00` | Daily check window |
-| `INTERVAL_MINUTES` | `15` | Loop interval |
+| `INTERVAL_MINUTES` | `5` | Base loop interval |
+| `JITTER_SECONDS` | `120` | Random ± offset on the interval (natural cadence) |
+| `BROWSER_LOCALE` / `BROWSER_TIMEZONE` | `de-DE` / `Europe/Berlin` | Browser profile presented to the site |
 | `MONITOR_TZ` | host local | IANA tz for the window (`Europe/Berlin`) |
 | `HEADLESS` | `true` | Set `false` to watch the browser locally |
 | `STATE_PATH` | `state.json` | Dedup memory location |
