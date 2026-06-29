@@ -3,7 +3,7 @@
 from types import SimpleNamespace
 
 import clinic_monitor.monitor as monitor
-from clinic_monitor.checker import AVAILABLE, NONE, UNKNOWN, CheckResult, Slot
+from clinic_monitor.checker import AVAILABLE, NONE, QUEUE, UNKNOWN, CheckResult, Slot
 
 
 def make_cfg(tmp_path):
@@ -71,6 +71,15 @@ def test_unknown_pings_once_to_check(monkeypatch, tmp_path):
 
     # Still unrecognised next cycle → no repeat ping.
     new, sent = run_with(monkeypatch, cfg, CheckResult(UNKNOWN))
+    assert sent == []
+
+
+def test_queue_pings_once(monkeypatch, tmp_path):
+    cfg = make_cfg(tmp_path)
+    new, sent = run_with(monkeypatch, cfg, CheckResult(QUEUE))
+    assert len(sent) == 1 and "queue is active" in sent[0].lower()
+
+    new, sent = run_with(monkeypatch, cfg, CheckResult(QUEUE))  # still queued → quiet
     assert sent == []
 
 

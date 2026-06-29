@@ -2,7 +2,7 @@
 
 from types import SimpleNamespace
 
-from clinic_monitor.checker import AVAILABLE, NONE, UNKNOWN, classify
+from clinic_monitor.checker import AVAILABLE, NONE, QUEUE, UNKNOWN, classify
 
 
 class FakeEl:
@@ -33,7 +33,10 @@ class FakePage:
         return [FakeEl(t) for t in self._layers.get(selector, [])]
 
 
-CFG = SimpleNamespace(no_slots_text="keine freien Termine")
+CFG = SimpleNamespace(
+    no_slots_text="keine freien Termine",
+    queue_text="erhöhtes Buchungsaufkommen",
+)
 
 
 def test_none_via_text():
@@ -61,6 +64,19 @@ def test_unknown_when_no_marker_and_no_times():
     # Not confirmed empty and no times -> alert (don't assume empty).
     page = FakePage("Terminauswahl with a calendar but no parseable times")
     assert classify(page, CFG) == (UNKNOWN, [])
+
+
+def test_queue_detected_from_waiting_room_text():
+    page = FakePage("Aktuell besteht ein erhöhtes Buchungsaufkommen. Die Wartezeit beträgt: 01")
+    assert classify(page, CFG) == (QUEUE, [])
+
+
+def test_no_slots_hint_is_not_mistaken_for_queue():
+    # The empty hint mentions "hohen Buchungsaufkommens" — must NOT read as queue.
+    page = FakePage(
+        "Aufgrund des hohen Buchungsaufkommens … keine freien Termine zur Verfügung."
+    )
+    assert classify(page, CFG) == (NONE, [])
 
 
 def test_times_win_even_if_empty_notice_present():

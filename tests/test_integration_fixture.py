@@ -16,7 +16,10 @@ import pytest
 from clinic_monitor.checker import AVAILABLE, TIME_RE, classify
 
 FIXTURE = pathlib.Path(__file__).parent / "fixtures" / "terminland_available.html"
-CFG = SimpleNamespace(no_slots_text="keine freien Termine")
+CFG = SimpleNamespace(
+    no_slots_text="keine freien Termine",
+    queue_text="erhöhtes Buchungsaufkommen",
+)
 
 
 def test_real_available_markup_is_detected():
