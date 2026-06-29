@@ -6,7 +6,12 @@ on:
   # year-round across CET/CEST.
   schedule:
     - cron: "*/5 5-20 * * *"
-  workflow_dispatch: {}
+  workflow_dispatch:
+    inputs:
+      ignore_window:
+        description: "Check even outside 08–21 (for testing)"
+        type: boolean
+        default: false
 
 concurrency:
   group: clinic-monitor
@@ -62,7 +67,7 @@ jobs:
           WINDOW_END: ${{ vars.WINDOW_END || '21:00' }}
           STATE_PATH: state.json
           CAPTURE_DIR: captures
-        run: clinic-monitor check
+        run: clinic-monitor check ${{ inputs.ignore_window && '--ignore-window' || '' }}
 
       # Keep page HTML/screenshots from any non-empty check for inspection.
       - name: Upload captures
