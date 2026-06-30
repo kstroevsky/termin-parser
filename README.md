@@ -48,9 +48,17 @@ and each service is a thin caller with its own cron:
 |---|---|---|
 | `monitor-adhs.yml` | ADHS-Abklärung (GKV) | every ~5 min |
 | `monitor-autism.yml` | Autismus-Diagnostik Erwachsene (GKV) | every ~10 min |
+| `heartbeat.yml` | both (health check) | once daily ~09:00 |
 
 Add another service by copying a caller, pointing `clinic_url`/`target_label`
 at it, and giving it a distinct `state_key`.
+
+### Health check (heartbeat)
+
+`clinic-monitor heartbeat` does a real check and **always** sends a short
+status ("✅ alive, no slots right now"). `heartbeat.yml` runs it once a day per
+service, so prolonged silence means the monitor is broken — not just that
+nothing's open.
 
    **Bias: a false positive beats a false negative.** Opening the page to find
    nothing is fine; *missing* a slot is not. So the only silent outcome is a
@@ -111,6 +119,7 @@ clinic-monitor check                 # one check (respects the 08–21 window)
 clinic-monitor check --ignore-window # check right now, regardless of time
 clinic-monitor check --dry-run       # check + log, but don't send Telegram
 clinic-monitor loop                  # run forever, every INTERVAL_MINUTES
+clinic-monitor heartbeat             # check + always report status (health ping)
 ```
 
 `loop` is the always-on mode; `check` is the one-shot used by cron / CI.
