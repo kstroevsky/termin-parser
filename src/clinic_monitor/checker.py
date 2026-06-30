@@ -99,17 +99,41 @@ def _normalize(text: str) -> str:
     return re.sub(r"\s+", " ", text).strip()
 
 
+def _day_label(page) -> str | None:
+    """The selected day, e.g. 'Dienstag, 30.06.2026', from the chart header."""
+    el = page.query_selector("#header_chart")
+    if not el:
+        return None
+    text = _normalize(el.inner_text() or "")
+    # "Freie Termine für Dienstag, 30.06.2026" -> "Dienstag, 30.06.2026"
+    return re.sub(r"^.*?\bfür\b\s*", "", text) or None
+
+
+def _slots_from(elements, day: str | None) -> list[Slot]:
+    found: dict[str, Slot] = {}
+    for el in elements:
+        text = _normalize(el.inner_text() or "")
+        match = TIME_RE.search(text)
+        if not match:
+            continue
+        # Label with the day when known, so the alert says when — and so dedup
+        # is per (day, time): the same time on another day alerts again.
+        label = f"{day} · {match.group(0)}" if day else text
+        found.setdefault(label, Slot(id=_slot_id(label), label=label))
+    return list(found.values())
+
+
 def _extract_slots(page) -> list[Slot]:
-    """Best-effort extraction of concrete time slots from the schedule step."""
+    """Concrete bookable times. Prefer Terminland's time chart (so each slot can
+    carry its day); fall back to generic layers for other markup variants."""
+    day = _day_label(page)
+    slots = _slots_from(page.query_selector_all("#chart label.tl-radio"), day)
+    if slots:
+        return slots
     for selector in _SLOT_LAYERS:
-        found: dict[str, Slot] = {}
-        for el in page.query_selector_all(selector):
-            text = _normalize(el.inner_text() or "")
-            if not text or not TIME_RE.search(text):
-                continue
-            found.setdefault(text, Slot(id=_slot_id(text), label=text))
-        if found:
-            return list(found.values())
+        slots = _slots_from(page.query_selector_all(selector), day)
+        if slots:
+            return slots
     return []
 
 

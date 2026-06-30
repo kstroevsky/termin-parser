@@ -16,9 +16,10 @@ class FakeEl:
 class FakePage:
     """Minimal stand-in for a Playwright page."""
 
-    def __init__(self, body, *, hinweis=False, layers=None):
+    def __init__(self, body, *, hinweis=False, header=None, layers=None):
         self._body = body
         self._hinweis = hinweis
+        self._header = header
         self._layers = layers or {}
 
     def inner_text(self, _selector):
@@ -27,6 +28,8 @@ class FakePage:
     def query_selector(self, selector):
         if selector == "#fsHinweis":
             return FakeEl() if self._hinweis else None
+        if selector == "#header_chart":
+            return FakeEl(self._header) if self._header else None
         return None
 
     def query_selector_all(self, selector):
@@ -77,6 +80,20 @@ def test_no_slots_hint_is_not_mistaken_for_queue():
         "Aufgrund des hohen Buchungsaufkommens … keine freien Termine zur Verfügung."
     )
     assert classify(page, CFG) == (NONE, [])
+
+
+def test_slots_are_labeled_with_their_day():
+    page = FakePage(
+        "Terminauswahl",
+        header="Freie Termine für Dienstag, 30.06.2026",
+        layers={"#chart label.tl-radio": ["10:00", "11:00"]},
+    )
+    status, slots = classify(page, CFG)
+    assert status == AVAILABLE
+    assert sorted(s.label for s in slots) == [
+        "Dienstag, 30.06.2026 · 10:00",
+        "Dienstag, 30.06.2026 · 11:00",
+    ]
 
 
 def test_times_win_even_if_empty_notice_present():
