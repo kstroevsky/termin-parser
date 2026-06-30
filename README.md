@@ -1,11 +1,14 @@
 # noris — clinic slot monitor
 
-Watches the **Noris Psychotherapie** ADHS online booking page on Terminland and
-sends a **Telegram** message the moment appointment slots open up. The clinic
-runs no waitlist and slots get snapped up fast, so this checks for you every
-**15 minutes between 08:00 and 21:00** (Europe/Berlin).
+Watches **Noris Psychotherapie** booking pages on Terminland (statutory/GKV
+ADHS and autism diagnostics) and sends a **Telegram** the moment slots open.
+The clinic runs no waitlist and slots get snapped up fast, so it checks
+frequently within **08:00–21:00 (Europe/Berlin)** — ADHS every ~5 min, autism
+every ~10 min.
 
-Booking page: <https://www.terminland.de/noris-psychotherapie/online/ADHS_new/>
+Booking pages:
+- ADHS: <https://www.terminland.de/noris-psychotherapie/online/ADHS_new/>
+- Autism: <https://www.terminland.de/noris-psychotherapie/online/Autismus-Diagnostik%20Erwachsene%20(GKV)/>
 
 ## How it works
 
@@ -34,6 +37,20 @@ Terminland is a JavaScript-driven ASP.NET wizard, so a headless browser
    (*gesetzlich* / statutory — the default here, very limited slots) and
    `…/online/ADHS_Privat/` (*Selbstzahler* / self-pay — less restricted). Point
    `CLINIC_URL` at whichever you need.
+
+### Watching several services
+
+Each check targets one `CLINIC_URL` with a `TARGET_LABEL` (shown in the alert)
+and its own dedup state. On GitHub Actions, `_check.yml` is a reusable workflow
+and each service is a thin caller with its own cron:
+
+| Workflow | Service | Cadence |
+|---|---|---|
+| `monitor-adhs.yml` | ADHS-Abklärung (GKV) | every ~5 min |
+| `monitor-autism.yml` | Autismus-Diagnostik Erwachsene (GKV) | every ~10 min |
+
+Add another service by copying a caller, pointing `clinic_url`/`target_label`
+at it, and giving it a distinct `state_key`.
 
    **Bias: a false positive beats a false negative.** Opening the page to find
    nothing is fine; *missing* a slot is not. So the only silent outcome is a
@@ -136,6 +153,7 @@ Caveats:
 | `TELEGRAM_TOKEN` | — | Bot token from @BotFather |
 | `TELEGRAM_CHAT_ID` | — | Your numeric chat id |
 | `CLINIC_URL` | the ADHS_new deeplink | Booking start URL |
+| `TARGET_LABEL` | — | Name shown in alerts (e.g. `ADHS (GKV)`) |
 | `NO_SLOTS_TEXT` | `keine freien Termine` | "nothing available" marker |
 | `QUEUE_TEXT` | `erhöhtes Buchungsaufkommen` | waiting-room marker |
 | `QUEUE_MAX_WAIT_S` | `180` | how long to wait out the queue before alerting |
