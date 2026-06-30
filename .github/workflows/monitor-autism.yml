@@ -1,0 +1,26 @@
+name: monitor-autism
+
+# Autismus-Diagnostik Erwachsene, statutory (GKV) — every ~10 min, 08–21 Berlin.
+on:
+  schedule:
+    - cron: "*/10 5-20 * * *"
+  workflow_dispatch:
+    inputs:
+      ignore_window:
+        description: "Check even outside 08–21 (for testing)"
+        type: boolean
+        default: false
+
+concurrency:
+  group: monitor-autism
+  cancel-in-progress: false
+
+jobs:
+  call:
+    uses: ./.github/workflows/_check.yml
+    secrets: inherit
+    with:
+      clinic_url: "https://www.terminland.de/noris-psychotherapie/online/Autismus-Diagnostik%20Erwachsene%20(GKV)/"
+      target_label: Autism (GKV)
+      state_key: state-autism
+      ignore_window: ${{ github.event.inputs.ignore_window == 'true' }}

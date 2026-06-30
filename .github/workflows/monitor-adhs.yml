@@ -1,0 +1,26 @@
+name: monitor-adhs
+
+# ADHS-Abklärung, statutory (GKV) — every ~5 min in the 08–21 Berlin window.
+on:
+  schedule:
+    - cron: "*/5 5-20 * * *"
+  workflow_dispatch:
+    inputs:
+      ignore_window:
+        description: "Check even outside 08–21 (for testing)"
+        type: boolean
+        default: false
+
+concurrency:
+  group: monitor-adhs
+  cancel-in-progress: false
+
+jobs:
+  call:
+    uses: ./.github/workflows/_check.yml
+    secrets: inherit
+    with:
+      clinic_url: https://www.terminland.de/noris-psychotherapie/online/ADHS_new/
+      target_label: ADHS (GKV)
+      state_key: state-adhs
+      ignore_window: ${{ github.event.inputs.ignore_window == 'true' }}
