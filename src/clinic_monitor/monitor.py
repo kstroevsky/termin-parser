@@ -65,8 +65,13 @@ def within_window(now: datetime, cfg: Config) -> bool:
     return local >= start or local <= end
 
 
+def _label(cfg: Config) -> str:
+    """'ADHS (GKV) — ' prefix for alert titles, or '' when no label set."""
+    return f"{cfg.target_label} — " if cfg.target_label else ""
+
+
 def _format_available(new_slots: list[Slot], cfg: Config) -> str:
-    lines = [f"🟢 <b>{len(new_slots)} appointment slot(s) just opened</b>", ""]
+    lines = [f"🟢 <b>{_label(cfg)}{len(new_slots)} appointment slot(s) just opened</b>", ""]
     for slot in new_slots[:25]:
         lines.append(f"• {slot.label}")
     if len(new_slots) > 25:
@@ -78,7 +83,7 @@ def _format_available(new_slots: list[Slot], cfg: Config) -> str:
 
 def _format_unknown(cfg: Config) -> str:
     return (
-        "🟡 <b>Possible appointment availability — check now</b>\n\n"
+        f"🟡 <b>{_label(cfg)}Possible appointment availability — check now</b>\n\n"
         "The page did <i>not</i> show the usual \"no free slots\" notice, but "
         "I also couldn't read a list of times. There may be an opening in a "
         "layout I haven't seen — better to look than miss it.\n\n"
@@ -88,7 +93,7 @@ def _format_unknown(cfg: Config) -> str:
 
 def _format_error(cfg: Config) -> str:
     return (
-        "🛠️ <b>Couldn't load the booking page — check manually</b>\n\n"
+        f"🛠️ <b>{_label(cfg)}Couldn't load the booking page — check manually</b>\n\n"
         "The monitor failed to read the page twice in a row (it may have "
         "changed or be temporarily down). Please check it yourself so a slot "
         "isn't missed while I'm blind.\n\n"
@@ -98,7 +103,7 @@ def _format_error(cfg: Config) -> str:
 
 def _format_queue(cfg: Config) -> str:
     return (
-        "⏳ <b>Booking queue is active — check now</b>\n\n"
+        f"⏳ <b>{_label(cfg)}Booking queue is active — check now</b>\n\n"
         "The clinic is showing its high-demand waiting room and it didn't "
         "clear in time. That usually means slots are being released right "
         "now — worth jumping in yourself.\n\n"

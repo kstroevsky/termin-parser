@@ -6,12 +6,13 @@ import clinic_monitor.monitor as monitor
 from clinic_monitor.checker import AVAILABLE, NONE, QUEUE, UNKNOWN, CheckResult, Slot
 
 
-def make_cfg(tmp_path):
+def make_cfg(tmp_path, label=""):
     return SimpleNamespace(
         state_path=tmp_path / "state.json",
         telegram_token="t",
         telegram_chat_id="c",
         clinic_url="https://example.test/book",
+        target_label=label,
     )
 
 
@@ -39,6 +40,12 @@ def test_available_notifies_once_then_dedups(monkeypatch, tmp_path):
     # Same slots still open next cycle → no second alert.
     new, sent = run_with(monkeypatch, cfg, res)
     assert new == [] and sent == []
+
+
+def test_label_appears_in_alert(monkeypatch, tmp_path):
+    cfg = make_cfg(tmp_path, label="Autism (GKV)")
+    _new, sent = run_with(monkeypatch, cfg, CheckResult(AVAILABLE, (slot("10:00"),)))
+    assert len(sent) == 1 and "Autism (GKV) —" in sent[0]
 
 
 def test_only_new_slot_alerts(monkeypatch, tmp_path):

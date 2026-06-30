@@ -17,6 +17,7 @@ class Config:
     telegram_token: str
     telegram_chat_id: str
     clinic_url: str
+    target_label: str
     no_slots_text: str
     queue_text: str
     queue_max_wait_s: int
@@ -57,6 +58,8 @@ def load_config() -> Config:
         telegram_token=_require("TELEGRAM_TOKEN"),
         telegram_chat_id=_require("TELEGRAM_CHAT_ID"),
         clinic_url=_require("CLINIC_URL"),
+        # Shown in alerts to say which clinic/service opened (e.g. "ADHS (GKV)").
+        target_label=os.getenv("TARGET_LABEL", "").strip(),
         # When this German text is on the schedule step, nothing is bookable.
         no_slots_text=os.getenv("NO_SLOTS_TEXT", "keine freien Termine").strip(),
         # The virtual waiting room headline (distinct from the no-slots hint,
