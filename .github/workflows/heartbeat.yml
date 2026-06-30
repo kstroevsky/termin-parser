@@ -1,0 +1,48 @@
+name: heartbeat
+
+# Once a day, send a "still alive" status for each service so that silence
+# (a dead monitor) can't be mistaken for "no slots".
+on:
+  schedule:
+    - cron: "0 7 * * *"   # ~09:00 Europe/Berlin
+  workflow_dispatch: {}
+
+permissions:
+  contents: read
+
+jobs:
+  beat:
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - label: ADHS (GKV)
+            url: https://www.terminland.de/noris-psychotherapie/online/ADHS_new/
+          - label: Autism (GKV)
+            url: "https://www.terminland.de/noris-psychotherapie/online/Autismus-Diagnostik%20Erwachsene%20(GKV)/"
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+          cache: pip
+          cache-dependency-path: pyproject.toml
+      - name: Cache Playwright browser
+        uses: actions/cache@v4
+        with:
+          path: ~/.cache/ms-playwright
+          key: playwright-${{ runner.os }}-chromium
+      - name: Install
+        run: |
+          pip install .
+          python -m playwright install --with-deps chromium
+      - name: Heartbeat
+        env:
+          TELEGRAM_TOKEN: ${{ secrets.TELEGRAM_TOKEN }}
+          TELEGRAM_CHAT_ID: ${{ secrets.TELEGRAM_CHAT_ID }}
+          CLINIC_URL: ${{ matrix.url }}
+          TARGET_LABEL: ${{ matrix.label }}
+          MONITOR_TZ: Europe/Berlin
+          CAPTURE_DIR: captures
+        run: clinic-monitor heartbeat
