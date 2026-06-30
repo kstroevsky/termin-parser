@@ -52,9 +52,10 @@ jobs:
           restore-keys: |
             ${{ inputs.state_key }}-
 
-      # Cron can't be randomised, so scatter within the window.
+      # Cron can't be randomised, so scatter widely within the window
+      # (0–270s, staying under the 5-min tick).
       - name: Random delay
-        run: sleep $(( RANDOM % 180 ))
+        run: sleep $(( RANDOM % 271 ))
 
       - name: Check for slots
         env:

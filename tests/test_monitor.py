@@ -1,6 +1,7 @@
 """Behavioural tests for the check→diff→notify→persist cycle (no browser)."""
 
 from types import SimpleNamespace
+from zoneinfo import ZoneInfo
 
 import clinic_monitor.monitor as monitor
 from clinic_monitor.checker import AVAILABLE, NONE, QUEUE, UNKNOWN, CheckResult, Slot
@@ -13,6 +14,7 @@ def make_cfg(tmp_path, label=""):
         telegram_chat_id="c",
         clinic_url="https://example.test/book",
         target_label=label,
+        tz=ZoneInfo("Europe/Berlin"),
     )
 
 
@@ -88,6 +90,18 @@ def test_queue_pings_once(monkeypatch, tmp_path):
 
     new, sent = run_with(monkeypatch, cfg, CheckResult(QUEUE))  # still queued → quiet
     assert sent == []
+
+
+def test_heartbeat_always_reports(monkeypatch, tmp_path):
+    cfg = make_cfg(tmp_path, label="ADHS (GKV)")
+    sent: list[str] = []
+    monkeypatch.setattr(monitor, "check", lambda _c: CheckResult(NONE))
+    monkeypatch.setattr(monitor, "send_message", lambda _t, _c, text: sent.append(text))
+
+    monitor.run_heartbeat(cfg)
+    monitor.run_heartbeat(cfg)  # heartbeat never dedups — always reports
+    assert len(sent) == 2
+    assert "ADHS (GKV)" in sent[0] and "alive" in sent[0]
 
 
 def test_scrape_failure_alerts_once(monkeypatch, tmp_path):

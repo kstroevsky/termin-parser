@@ -111,6 +111,32 @@ def _format_queue(cfg: Config) -> str:
     )
 
 
+def _format_heartbeat(result, cfg: Config) -> str:
+    label = cfg.target_label or "Monitor"
+    when = datetime.now(cfg.tz).strftime("%a %d.%m %H:%M %Z")
+    if result.status == AVAILABLE:
+        body = f"🟢 and {len(result.slots)} slot(s) are open right now!"
+    elif result.status == NONE:
+        body = "no slots right now."
+    else:
+        body = f"but saw “{result.status}” this check."
+    return (
+        f"✅ <b>{label}</b> — monitor alive, {body}\n"
+        f"<i>{when}</i>\n"
+        f'<a href="{cfg.clinic_url}">Open booking page</a>'
+    )
+
+
+def run_heartbeat(cfg: Config, *, notify: bool = True) -> None:
+    """Daily 'still alive' summary: do a real check and always report the
+    result, so a silent monitor (vs simply no slots) becomes obvious."""
+    result = _safe_check(cfg)
+    log.info("heartbeat status=%s slots=%d", result.status, len(result.slots))
+    if notify:
+        send_message(cfg.telegram_token, cfg.telegram_chat_id,
+                     _format_heartbeat(result, cfg))
+
+
 def run_once(cfg: Config, *, notify: bool = True) -> list[Slot]:
     """Run a single check. Returns the newly-notified items (possibly empty)."""
     result = _safe_check(cfg)

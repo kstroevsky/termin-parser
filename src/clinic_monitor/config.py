@@ -70,7 +70,7 @@ def load_config() -> Config:
         window_end=os.getenv("WINDOW_END", "21:00").strip(),
         # Base cadence and ± random jitter so checks don't land on a fixed clock.
         interval_minutes=int(os.getenv("INTERVAL_MINUTES", "5")),
-        jitter_seconds=int(os.getenv("JITTER_SECONDS", "120")),
+        jitter_seconds=int(os.getenv("JITTER_SECONDS", "150")),
         tz=_resolve_tz(),
         state_path=Path(os.getenv("STATE_PATH", "state.json")),
         capture_dir=Path(os.getenv("CAPTURE_DIR", "captures")),

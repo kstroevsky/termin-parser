@@ -14,7 +14,7 @@ import time
 from datetime import datetime
 
 from .config import load_config
-from .monitor import next_sleep_seconds, run_once, within_window
+from .monitor import next_sleep_seconds, run_heartbeat, run_once, within_window
 from .telegram import send_message
 
 log = logging.getLogger("clinic_monitor")
@@ -60,6 +60,11 @@ def _cmd_loop(args: argparse.Namespace) -> int:
         time.sleep(sleep_for)
 
 
+def _cmd_heartbeat(args: argparse.Namespace) -> int:
+    run_heartbeat(load_config())
+    return 0
+
+
 def _cmd_test_telegram(args: argparse.Namespace) -> int:
     cfg = load_config()
     resp = send_message(
@@ -86,6 +91,9 @@ def main(argv: list[str] | None = None) -> int:
 
     p_loop = sub.add_parser("loop", help="run continuously")
     p_loop.set_defaults(func=_cmd_loop)
+
+    p_beat = sub.add_parser("heartbeat", help="send a 'still alive' status summary")
+    p_beat.set_defaults(func=_cmd_heartbeat)
 
     p_test = sub.add_parser("test-telegram", help="send a test Telegram message")
     p_test.set_defaults(func=_cmd_test_telegram)
